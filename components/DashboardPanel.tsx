@@ -88,14 +88,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
       rows = rows.filter(r => String(r[buildingCol.name] || 'Unknown').trim() === selectedBuilding);
     }
     if (conditionCol && selectedCondition) {
-      // Logic reversed to match localized keys if needed, but here we filter by original value
-      // We need to map selectedCondition (localized) back to possible original values or 
-      // safer: filter by the raw values but since we select from chart, chart uses localized names.
-      // Complex part: The chart uses localized names. We need to map back.
-      // SIMPLIFICATION: We will keep using raw keys for state if possible, but for now let's handle the UI selection.
-      
-      // Actually, let's make the chart use Localized Keys. Then filtering needs to check if the row's value maps to that key.
-      const targetKey = selectedCondition; // This is "Good", "Bad" (Localized)
+      const targetKey = selectedCondition;
       
       rows = rows.filter(r => {
           const val = String(r[conditionCol.name] || 'Unknown').trim().toLowerCase();
@@ -103,7 +96,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
           if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) localKey = t('statusGood');
           else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) localKey = t('statusDamaged');
           else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) localKey = t('statusPartial');
-          else localKey = val; // Fallback
+          else localKey = val;
           
           return localKey === targetKey;
       });
@@ -132,14 +125,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
       if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) label = t('statusGood');
       else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) label = t('statusDamaged');
       else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) label = t('statusPartial');
-      else label = t('statusPartial'); // Fallback to repair/partial or keep raw if distinct
+      else label = t('statusPartial'); 
       
       counts[label] = (counts[label] || 0) + 1;
     });
 
     const chartData = Object.entries(counts)
       .map(([name, value]) => {
-         // Determine color based on Localized Name
          let color = PALETTE[0];
          if (name === t('statusGood')) color = COLORS.good;
          else if (name === t('statusDamaged')) color = COLORS.damaged;
@@ -235,77 +227,77 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
   return (
     <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative">
       
-      {/* Top Bar: KPIs */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200 shadow-sm flex-none z-20">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Top Bar: KPIs - Horizontal Scroll on Mobile */}
+      <div className="px-4 py-3 md:px-6 md:py-5 bg-white border-b border-slate-200 shadow-sm flex-none z-20">
+          <div className="flex flex-nowrap md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto md:overflow-visible pb-2 md:pb-0 scrollbar-hide snap-x">
               {/* Total Asset KPI */}
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg shadow-indigo-200 flex items-center justify-between relative overflow-hidden group">
-                  <div className="relative z-10">
-                      <p className="text-indigo-100 text-xs font-medium uppercase tracking-wider mb-1">{t('totalAssets')}</p>
-                      <h3 className="text-3xl font-bold">{data.rows.length.toLocaleString()}</h3>
-                      <p className="text-indigo-200 text-[10px] mt-1">{t('itemsInDb')}</p>
+              <div className="min-w-[240px] md:min-w-0 snap-start bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-3 md:p-4 text-white shadow-lg shadow-indigo-200 flex items-center justify-between relative overflow-hidden group">
+                  <div className="relative z-10 min-w-0">
+                      <p className="text-indigo-100 text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 truncate">{t('totalAssets')}</p>
+                      <h3 className="text-xl md:text-3xl font-bold truncate">{data.rows.length.toLocaleString()}</h3>
+                      <p className="text-indigo-200 text-[9px] md:text-[10px] mt-1 truncate">{t('itemsInDb')}</p>
                   </div>
-                  <div className="bg-white/20 p-3 rounded-lg backdrop-blur-sm relative z-10">
-                      <Box className="w-6 h-6 text-white" />
+                  <div className="bg-white/20 p-2 md:p-3 rounded-lg backdrop-blur-sm relative z-10 flex-shrink-0">
+                      <Box className="w-5 h-5 md:w-6 md:h-6 text-white" />
                   </div>
                   <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
               </div>
 
               {/* Damaged KPI */}
-              <div className="bg-white border border-red-100 rounded-xl p-4 shadow-sm flex items-center justify-between">
-                  <div>
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">{t('attentionNeeded')}</p>
-                      <h3 className="text-2xl font-bold text-slate-800">{stats.damagedCount.toLocaleString()}</h3>
-                      <p className="text-red-500 text-[10px] font-medium mt-1 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" /> {t('damagedRepair')}
+              <div className="min-w-[240px] md:min-w-0 snap-start bg-white border border-red-100 rounded-xl p-3 md:p-4 shadow-sm flex items-center justify-between">
+                  <div className="min-w-0">
+                      <p className="text-slate-500 text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 truncate">{t('attentionNeeded')}</p>
+                      <h3 className="text-lg md:text-2xl font-bold text-slate-800 truncate">{stats.damagedCount.toLocaleString()}</h3>
+                      <p className="text-red-500 text-[9px] md:text-[10px] font-medium mt-1 flex items-center gap-1 truncate">
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" /> {t('damagedRepair')}
                       </p>
                   </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                  <div className="bg-red-50 p-2 md:p-3 rounded-lg flex-shrink-0">
+                      <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
                   </div>
               </div>
 
               {/* Good KPI */}
-              <div className="bg-white border border-emerald-100 rounded-xl p-4 shadow-sm flex items-center justify-between">
-                  <div>
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">{t('goodCondition')}</p>
-                      <h3 className="text-2xl font-bold text-slate-800">
+              <div className="min-w-[240px] md:min-w-0 snap-start bg-white border border-emerald-100 rounded-xl p-3 md:p-4 shadow-sm flex items-center justify-between">
+                  <div className="min-w-0">
+                      <p className="text-slate-500 text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 truncate">{t('goodCondition')}</p>
+                      <h3 className="text-lg md:text-2xl font-bold text-slate-800 truncate">
                           {stats.chartData.filter(d => d.color === COLORS.good).reduce((a,b) => a + b.value, 0).toLocaleString()}
                       </h3>
-                      <p className="text-emerald-500 text-[10px] font-medium mt-1 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> {t('operational')}
+                      <p className="text-emerald-500 text-[9px] md:text-[10px] font-medium mt-1 flex items-center gap-1 truncate">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> {t('operational')}
                       </p>
                   </div>
-                  <div className="bg-emerald-50 p-3 rounded-lg">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  <div className="bg-emerald-50 p-2 md:p-3 rounded-lg flex-shrink-0">
+                      <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />
                   </div>
               </div>
 
               {/* Buildings Count */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between">
-                   <div>
-                      <p className="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">{t('locations')}</p>
-                      <h3 className="text-2xl font-bold text-slate-800">{buildings.length}</h3>
-                      <p className="text-slate-400 text-[10px] mt-1">{t('buildingsZones')}</p>
+              <div className="min-w-[240px] md:min-w-0 snap-start bg-white border border-slate-200 rounded-xl p-3 md:p-4 shadow-sm flex items-center justify-between">
+                   <div className="min-w-0">
+                      <p className="text-slate-500 text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 truncate">{t('locations')}</p>
+                      <h3 className="text-lg md:text-2xl font-bold text-slate-800 truncate">{buildings.length}</h3>
+                      <p className="text-slate-400 text-[9px] md:text-[10px] mt-1 truncate">{t('buildingsZones')}</p>
                    </div>
-                   <div className="bg-slate-50 p-3 rounded-lg">
-                      <Building2 className="w-5 h-5 text-slate-400" />
+                   <div className="bg-slate-50 p-2 md:p-3 rounded-lg flex-shrink-0">
+                      <Building2 className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
                    </div>
               </div>
           </div>
       </div>
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Workspace: Flex Column on Mobile, Row on Desktop */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           
-          {/* LEFT PANEL: Data & Filters (65-70%) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white border-r border-slate-200 relative">
+          {/* LEFT PANEL: Data & Filters */}
+          <div className="flex-1 flex flex-col min-w-0 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 relative order-1 lg:order-1">
               
               {/* Building Filter Bar (Tabs) */}
               <div className="px-4 py-3 border-b border-slate-100 bg-white flex items-center gap-3 overflow-x-auto scrollbar-hide flex-none">
                   <div className="flex items-center gap-2 pr-4 border-r border-slate-100 mr-2 flex-none">
                       <Filter className="w-4 h-4 text-indigo-600" />
-                      <span className="text-xs font-bold text-slate-700 uppercase">{t('filter')}</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase hidden md:inline">{t('filter')}</span>
                   </div>
                   
                   <button
@@ -342,13 +334,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
               </div>
           </div>
 
-          {/* RIGHT PANEL: Inspector & Charts (30-35%) */}
-          <div className="w-[380px] flex-none bg-slate-50 border-l border-slate-200 flex flex-col overflow-y-auto custom-scrollbar">
+          {/* RIGHT PANEL: Inspector & Charts */}
+          {/* On Mobile: Fixed height (40%). Desktop: Full height, Fixed Width */}
+          <div className="h-[40%] lg:h-full w-full lg:w-[380px] flex-none bg-slate-50 lg:border-l border-slate-200 flex flex-col overflow-y-auto custom-scrollbar order-2 lg:order-2 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.1)] lg:shadow-none z-30">
               
               {/* Section 1: Chart & Analysis */}
               <div className="p-5 border-b border-slate-200 bg-white">
                   <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm md:text-base">
                           <BarChart3 className="w-4 h-4 text-indigo-500" />
                           {t('conditionAnalysis')}
                       </h3>
@@ -363,7 +356,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                   </div>
                   
                   <div className="flex flex-col items-center">
-                      <div className="w-full h-[180px] relative">
+                      <div className="w-full h-[150px] md:h-[180px] relative">
                           <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                   <Pie
@@ -392,8 +385,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                           </ResponsiveContainer>
                           {/* Center Label */}
                           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                              <span className="text-3xl font-bold text-slate-800">{stats.current}</span>
-                              <span className="text-[10px] text-slate-400 uppercase tracking-widest">Items</span>
+                              <span className="text-2xl md:text-3xl font-bold text-slate-800">{stats.current}</span>
+                              <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest">Items</span>
                           </div>
                       </div>
                       
@@ -407,16 +400,16 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
 
               {/* Section 2: Selected Item Preview */}
               <div className="flex-1 p-5 flex flex-col">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 text-sm md:text-base">
                       <ImageIcon className="w-4 h-4 text-indigo-500" />
                       {t('assetInspector')}
                   </h3>
 
-                  <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-col h-full min-h-[300px]">
+                  <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-col h-full min-h-[200px] md:min-h-[300px]">
                       {previewImages.length > 0 ? (
                           <>
                               {/* Main Large Image */}
-                              <div className="relative flex-1 rounded-xl overflow-hidden bg-slate-100 group border border-slate-100">
+                              <div className="relative flex-1 rounded-xl overflow-hidden bg-slate-100 group border border-slate-100 min-h-[150px]">
                                   <img 
                                       src={previewImages[0]} 
                                       alt="Preview" 
@@ -439,7 +432,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                                       {previewImages.slice(1).map((img, idx) => (
                                           <div 
                                             key={idx} 
-                                            className="w-16 h-16 flex-none rounded-lg border border-slate-200 overflow-hidden cursor-pointer hover:ring-2 ring-indigo-500 transition-all"
+                                            className="w-14 h-14 flex-none rounded-lg border border-slate-200 overflow-hidden cursor-pointer hover:ring-2 ring-indigo-500 transition-all"
                                             onClick={() => openModal(idx + 1)}
                                           >
                                               <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -450,7 +443,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
 
                               {/* Details Info */}
                               <div className="mt-4 pt-4 border-t border-slate-100">
-                                  <h4 className="font-bold text-slate-800 text-sm mb-1">{previewTitle}</h4>
+                                  <h4 className="font-bold text-slate-800 text-sm mb-1 line-clamp-2">{previewTitle}</h4>
                                   <p className="text-xs text-slate-500">
                                       {selectedRowData && roomCol ? String(selectedRowData[roomCol.name]) : t('noLocationInfo')}
                                   </p>
@@ -466,7 +459,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                           </>
                       ) : (
                           <div className="flex-1 flex flex-col items-center justify-center text-slate-300 gap-3 border-2 border-dashed border-slate-100 rounded-xl m-2">
-                              <Box className="w-12 h-12 opacity-20" />
+                              <Box className="w-10 h-10 md:w-12 md:h-12 opacity-20" />
                               <div className="text-center">
                                   <p className="text-xs font-medium text-slate-400">{t('noItemSelected')}</p>
                                   <p className="text-[10px] mt-1">{t('selectRowHint')}</p>

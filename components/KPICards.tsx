@@ -1,6 +1,6 @@
 import React from 'react';
 import { SheetData } from '../types';
-import { TrendingUp, Users, Activity, Database, DollarSign, Package } from 'lucide-react';
+import { TrendingUp, Users, Database, DollarSign } from 'lucide-react';
 
 interface KPICardsProps {
   data: SheetData;
@@ -18,8 +18,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   
   const totalRows = data.rows.length;
   
-  // 1. Room Count (Replaces Total Records)
-  // Attempt to find a Room/Unit column to count unique entries
+  // 1. Room Count
   const roomKeywords = ['room', 'ห้อง', 'unit', 'no.', 'เลขที่'];
   const roomCol = data.columns.find(c => 
     roomKeywords.some(k => c.name.toLowerCase().includes(k)) && 
@@ -30,11 +29,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   let countValue = "";
 
   if (roomCol) {
-    // Count unique rooms
     const uniqueRooms = new Set(data.rows.map(r => String(r[roomCol.name] || '').trim()).filter(Boolean));
     countValue = `${uniqueRooms.size.toLocaleString()} ห้อง`;
   } else {
-    // Fallback: Count rows as rooms
     countValue = `${totalRows.toLocaleString()} ห้อง`;
   }
 
@@ -46,11 +43,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
   };
 
   // 2. Primary Metric (Money/Main)
-  // Prioritize explicit money terms
   const moneyKeywords = ['revenue', 'sales', 'price', 'cost', 'expense', 'profit', 'ยอดขาย', 'ราคา', 'ต้นทุน', 'ค่าใช้จ่าย', 'จำนวนเงิน', 'income', 'baht', 'บาท', 'billing', 'invoice', 'fee', 'total', 'ยอดรวม'];
   let primaryCol = findCol(moneyKeywords);
   
-  // If no money column, take the first numeric column available
   if (!primaryCol && numericColumns.length > 0) {
     primaryCol = numericColumns[0];
   }
@@ -66,31 +61,45 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     };
   }
 
-  // 3. Secondary Metric (Capacity/People/Count focus)
-  // Keywords: capacity, people, pax, unit, qty, amount, จำนวน, bed, room
+  // 3. Secondary Metric (Capacity/People)
   const capacityKeywords = ['capacity', 'pax', 'people', 'person', 'guest', 'member', 'จำนวนคน', 'ผู้เข้าพัก', 'รับได้', 'bed', 'เตียง', 'occupancy', 'unit', 'qty', 'quantity', 'amount', 'จำนวน', 'count', 'ความจุ'];
   
   let secondaryCol = findCol(capacityKeywords, primaryCol?.name);
   
-  // If no specific capacity column found, just take the next available numeric column that isn't the primary
   if (!secondaryCol && numericColumns.length > 1) {
     secondaryCol = numericColumns.find(c => c.name !== primaryCol?.name);
   }
 
   let secondaryMetric = null;
   if (secondaryCol) {
-    const totalSum = data.rows.reduce((acc, row) => acc + (Number(row[secondaryCol.name]) || 0), 0);
-    
-    // Custom label logic based on user request
-    let label = `Total ${secondaryCol.name}`;
-    let valueDisplay = totalSum.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
-    // Check for capacity/quantity keywords to apply specific Thai label and unit
     const isCapacityRelated = secondaryCol.name.includes('จำนวน') || 
                               secondaryCol.name.toLowerCase().includes('capacity') || 
                               secondaryCol.name.includes('ความจุ') ||
                               secondaryCol.name.toLowerCase().includes('pax') ||
-                              secondaryCol.name.includes('คน');
+                              secondaryCol.name.includes('คน') ||
+                              secondaryCol.name.includes('เตียง');
+
+    let totalSum = 0;
+    
+    // IF it is a capacity column AND we have a room column, we assume capacity is a property of the room.
+    // Therefore, we should take the MAX capacity for each room (to avoid summing duplicates if a room has multiple asset rows),
+    // and then sum the capacities of all unique rooms.
+    if (isCapacityRelated && roomCol) {
+       const roomMap = new Map<string, number>();
+       data.rows.forEach(row => {
+          const roomName = String(row[roomCol.name] || 'Unknown');
+          const val = Number(row[secondaryCol.name]) || 0;
+          const currentMax = roomMap.get(roomName) || 0;
+          roomMap.set(roomName, Math.max(currentMax, val));
+       });
+       totalSum = Array.from(roomMap.values()).reduce((a, b) => a + b, 0);
+    } else {
+       // Otherwise (e.g. Price, Qty of Items), standard sum is correct
+       totalSum = data.rows.reduce((acc, row) => acc + (Number(row[secondaryCol.name]) || 0), 0);
+    }
+    
+    let label = `Total ${secondaryCol.name}`;
+    let valueDisplay = totalSum.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
     if (isCapacityRelated) {
       label = 'สามารถบรรจุคนได้';
@@ -105,7 +114,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     };
   }
   
-  // 4. Categorical Count (Unique values of first string column)
+  // 4. Categorical Count
   const stringCol = data.columns.find(c => 
     c.type === 'string' && 
     !c.name.toLowerCase().includes('date') && 
@@ -119,15 +128,10 @@ export const KPICards: React.FC<KPICardsProps> = ({ data }) => {
     const unique = new Set(data.rows.map(r => r[stringCol.name]));
     
     let label = `Unique ${stringCol.name}`;
-    
-    // Check if it's a building column for the requested Thai label
     if (/building|ตึก|อาคาร|tower/i.test(stringCol.name)) {
       label = "จำนวนตึกทั้งหมด";
-    } else {
-      // Append 's' only if it looks like English word
-      if (/^[a-zA-Z\s]+$/.test(stringCol.name)) {
-        label += 's';
-      }
+    } else if (/^[a-zA-Z\s]+$/.test(stringCol.name)) {
+      label += 's';
     }
 
     categoryMetric = {

@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { SheetData } from './types';
 import { fetchSheetData } from './services/sheetService';
 import { DashboardPanel } from './components/DashboardPanel';
-import { LayoutDashboard, FileSpreadsheet, AlertTriangle, RefreshCw, Box } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, AlertTriangle, RefreshCw, Box, Languages } from 'lucide-react';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
-const App: React.FC = () => {
+// Create an inner component to use the hook
+const AppContent: React.FC = () => {
   const [data, setData] = useState<SheetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { language, setLanguage, t } = useLanguage();
 
   const loadData = async () => {
     setLoading(true);
@@ -27,6 +30,10 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
+  const toggleLanguage = () => {
+    setLanguage(language === 'th' ? 'en' : 'th');
+  };
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden font-sans text-slate-900">
       {/* Modern Header */}
@@ -41,20 +48,30 @@ const App: React.FC = () => {
               </div>
               <div className="flex flex-col">
                 <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">
-                  RMUTL Asset Analytics
+                  {t('appTitle')}
                 </h1>
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                  Civil Engineering Dept.
+                  {t('deptTitle')}
                 </span>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-3">
+              
+              {/* Language Toggle */}
+              <button
+                onClick={toggleLanguage}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all font-medium text-xs"
+              >
+                <Languages className="w-4 h-4" />
+                <span>{language === 'th' ? 'TH' : 'EN'}</span>
+              </button>
+
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100/50 rounded-lg border border-slate-200/50">
                  <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>
                  <span className="text-xs font-medium text-slate-500">
-                   {loading ? 'Syncing...' : 'Live Data'}
+                   {loading ? t('syncing') : t('liveData')}
                  </span>
               </div>
 
@@ -67,7 +84,7 @@ const App: React.FC = () => {
                 className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors px-3 py-2 rounded-lg hover:bg-slate-50"
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                Source
+                {t('source')}
               </a>
               <button 
                 onClick={loadData}
@@ -123,6 +140,14 @@ const App: React.FC = () => {
         )}
       </main>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 };
 

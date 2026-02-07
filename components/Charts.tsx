@@ -26,8 +26,8 @@ export const Charts: React.FC<ChartsProps> = ({ data }) => {
     // Group by date
     const grouped = data.rows.reduce((acc, row) => {
       const date = String(row[dateColumn.name]);
-      if (!acc[date]) acc[date] = 0;
-      acc[date] += (row[targetMetric] as number) || 0;
+      const val = Number(row[targetMetric]) || 0;
+      acc[date] = (Number(acc[date]) || 0) + val;
       return acc;
     }, {} as Record<string, number>);
     
@@ -48,9 +48,9 @@ export const Charts: React.FC<ChartsProps> = ({ data }) => {
   if (categoryColumn) {
      const grouped = data.rows.reduce((acc, row) => {
       const cat = String(row[categoryColumn.name]);
-      const val = (row[targetMetric] as number) || 0;
+      const val = Number(row[targetMetric]) || 0;
       // Use direct assignment to avoid TS issues with indexed access accumulation
-      acc[cat] = (acc[cat] || 0) + val;
+      acc[cat] = (Number(acc[cat]) || 0) + val;
       return acc;
     }, {} as Record<string, number>);
 

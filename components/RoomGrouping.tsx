@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { SheetData, DataRow } from '../types';
-import { Home, ChevronDown, ChevronUp, DollarSign, Activity, Calendar } from 'lucide-react';
+import { Home, ChevronDown, ChevronUp, Activity } from 'lucide-react';
 
 interface RoomGroupingProps {
   data: SheetData;
@@ -14,7 +14,7 @@ export const RoomGrouping: React.FC<RoomGroupingProps> = ({ data }) => {
     return data.columns.find(c => /room|ห้อง|unit|no\.|เลขที่/i.test(c.name) && !/building|ตึก|อาคาร/i.test(c.name));
   }, [data.columns]);
 
-  // 2. Identify Numeric Columns for aggregation (exclude Year/Month if they are numbers)
+  // 2. Identify Numeric Columns for aggregation
   const metricCols = useMemo(() => {
     return data.columns.filter(c => 
       c.type === 'number' && 
@@ -22,7 +22,7 @@ export const RoomGrouping: React.FC<RoomGroupingProps> = ({ data }) => {
     );
   }, [data.columns]);
 
-  // 3. Identify Date/Period Column for the details view
+  // 3. Identify Date/Period Column
   const periodCol = useMemo(() => {
     return data.columns.find(c => /date|time|month|period|วันที่|เดือน|งวด/i.test(c.name)) || data.columns[0];
   }, [data.columns]);
@@ -41,16 +41,26 @@ export const RoomGrouping: React.FC<RoomGroupingProps> = ({ data }) => {
     // Calculate aggregations
     return Object.entries(groups).map(([room, rows]) => {
       const stats = metricCols.map(col => {
-        const sum = rows.reduce((acc, r) => acc + (Number(r[col.name]) || 0), 0);
+        // Check if this column is a capacity/attribute of room (use MAX) or quantity of items (use SUM)
+        const isCapacity = /capacity|pax|people|person|guest|bed|เตียง|คน|ความจุ/i.test(col.name);
+        
+        let sum = 0;
+        if (isCapacity) {
+             // For capacity, take the max value found in any row for this room
+             sum = Math.max(...rows.map(r => Number(r[col.name]) || 0));
+        } else {
+             // For standard metrics (cost, quantity), sum them up
+             sum = rows.reduce((acc, r) => acc + (Number(r[col.name]) || 0), 0);
+        }
+
         return {
           name: col.name,
           sum,
-          avg: sum / rows.length
+          avg: sum / (isCapacity ? 1 : rows.length) // avg meaningful only for sum
         };
       });
       return { room, rows, stats };
     }).sort((a, b) => {
-       // Try natural sort for room numbers (e.g. 101, 102, 110 instead of 101, 110, 102)
        return a.room.localeCompare(b.room, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [data, roomCol, metricCols]);
@@ -111,7 +121,7 @@ export const RoomGrouping: React.FC<RoomGroupingProps> = ({ data }) => {
                    </div>
                    {group.stats.slice(0, 5).map((stat, idx) => (
                       <div key={idx} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                        <p className="text-xs text-slate-500 mb-1 truncate" title={stat.name}>Total {stat.name}</p>
+                        <p className="text-xs text-slate-500 mb-1 truncate" title={stat.name}>{stat.name}</p>
                         <p className="font-bold text-slate-800 text-lg">
                           {stat.sum.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
@@ -130,7 +140,7 @@ export const RoomGrouping: React.FC<RoomGroupingProps> = ({ data }) => {
                       <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{periodCol?.name || 'Period'}</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase">{periodCol?.name || 'Item'}</th>
                             {metricCols.map(col => (
                               <th key={col.name} className="px-4 py-2 text-right text-xs font-semibold text-slate-500 uppercase">{col.name}</th>
                             ))}

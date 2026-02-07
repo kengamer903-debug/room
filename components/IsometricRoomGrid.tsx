@@ -1,9 +1,25 @@
-
 import React, { useState, Suspense, useRef } from 'react';
 import { Canvas, useLoader, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Float, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Map, Info, Box, Layers, MousePointer2, ScanLine, Rotate3d } from 'lucide-react';
+
+// Augment JSX namespace to fix R3F element errors
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      boxGeometry: any;
+      meshStandardMaterial: any;
+      planeGeometry: any;
+      gridHelper: any;
+      ambientLight: any;
+      pointLight: any;
+      spotLight: any;
+    }
+  }
+}
 
 // --- 3D Scene Component ---
 const MapModel = ({ imageUrl, showBuilding }: { imageUrl: string, showBuilding: boolean }) => {

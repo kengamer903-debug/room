@@ -1,24 +1,35 @@
 import React, { useState, useMemo } from 'react';
-import { SheetData, DataRow } from '../types';
-import { Search, ChevronRight, ChevronDown, Layers, LayoutList } from 'lucide-react';
+import { SheetData, DataRow, ColumnInfo } from '../types';
+import { Search, ChevronRight, ChevronDown, Layers, LayoutList, Image as ImageIcon } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface DataGridProps {
   data: SheetData;
+  onSelectRow?: (row: DataRow, type: 'group' | 'item') => void;
 }
 
-export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
+export const DataGrid: React.FC<DataGridProps> = ({ data, onSelectRow }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isGroupedView, setIsGroupedView] = useState(true);
+  const { t } = useLanguage();
 
   // Grouping Logic
   const roomCol = useMemo(() => 
     data.columns.find(c => /room|ห้อง|unit|no\.|เลขที่/i.test(c.name) && !/building|ตึก|อาคาร/i.test(c.name)), 
   [data.columns]);
 
+  // Identify the column that serves as the source for images (Preview)
+  // Priority: Explicit 'image' type -> String type with 'url'/'link'/'img' in name (but NOT Condition)
+  const imageCol = useMemo(() => 
+    data.columns.find(c => c.type === 'image') || 
+    data.columns.find(c => c.type === 'string' && /url|link|img|pic|photo|รูป|ภาพ/i.test(c.name) && !/สภาพ|condition/i.test(c.name)),
+  [data.columns]);
+
   const displayColumns = useMemo(() => {
     return data.columns.filter(col => 
       !/building|ตึก|อาคาร|tower|block|section|zone/i.test(col.name) &&
+      col.type !== 'image' && // Hide explicit image columns from grid
       (isGroupedView && roomCol ? col.name !== roomCol.name : true)
     );
   }, [data.columns, isGroupedView, roomCol]);
@@ -31,52 +42,156 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
     );
   }, [data.rows, searchTerm]);
 
+  const isCapacityCol = (name: string) => /capacity|pax|people|person|guest|bed|เตียง|คน|ความจุ/i.test(name);
+  const isConditionCol = (name: string) => /condition|status|สภาพ|สถานะ/i.test(name);
+
   const groupedData = useMemo(() => {
     if (!roomCol || !isGroupedView) return null;
-    const groups: Record<string, { rows: DataRow[]; totals: Record<string, number>; staticValues: Record<string, string> }> = {};
+    
+    // Structure: groups[key] = { rows, totals, staticValues, allImages: Set }
+    const groups: Record<string, { 
+        rows: DataRow[]; 
+        totals: Record<string, number>; 
+        staticValues: Record<string, string>; 
+        allImages: Set<string>; // Changed from firstImage to a Set of all images
+    }> = {};
     
     filteredRows.forEach(row => {
       const groupKey = String(row[roomCol.name] || 'Unknown').trim();
-      if (!groups[groupKey]) groups[groupKey] = { rows: [], totals: {}, staticValues: {} };
+      
+      if (!groups[groupKey]) {
+          groups[groupKey] = { 
+              rows: [], 
+              totals: {}, 
+              staticValues: {}, 
+              allImages: new Set() 
+          };
+      }
+      
       groups[groupKey].rows.push(row);
+      
+      // Collect ALL images for the group
+      if (imageCol) {
+         const val = String(row[imageCol.name] || '').trim();
+         if (val) {
+             // Handle comma separated images within a single cell too
+             const parts = val.split(',').map(s => s.trim()).filter(s => s.startsWith('http') || s.startsWith('www'));
+             parts.forEach(p => groups[groupKey].allImages.add(p));
+         }
+      }
+
       displayColumns.forEach(col => {
         if (col.type === 'number') {
            const val = Number(row[col.name]) || 0;
-           groups[groupKey].totals[col.name] = (groups[groupKey].totals[col.name] || 0) + val;
+           if (!isCapacityCol(col.name)) {
+             groups[groupKey].totals[col.name] = (groups[groupKey].totals[col.name] || 0) + val;
+           }
         }
       });
     });
 
     Object.values(groups).forEach(group => {
       displayColumns.forEach(col => {
-        const values = new Set(group.rows.map(r => String(r[col.name] || '')));
-        if (values.size === 1) group.staticValues[col.name] = String(group.rows[0][col.name] || '');
+        if (col.type === 'number') {
+           if (isCapacityCol(col.name)) {
+              const maxVal = Math.max(...group.rows.map(r => Number(r[col.name]) || 0));
+              group.totals[col.name] = maxVal;
+           }
+        } else {
+           const values = Array.from(new Set(group.rows.map(r => String(r[col.name] || '').trim()).filter(Boolean)));
+           if (values.length > 0) {
+              group.staticValues[col.name] = values.join(', ');
+           }
+        }
       });
     });
 
     return Object.entries(groups).sort((a, b) => 
       a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' })
     );
-  }, [filteredRows, roomCol, isGroupedView, displayColumns]);
+  }, [filteredRows, roomCol, isGroupedView, displayColumns, data.columns, imageCol]);
 
-  const toggleGroup = (groupKey: string) => {
+  const toggleGroup = (groupKey: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     const newSet = new Set(expandedGroups);
     if (newSet.has(groupKey)) newSet.delete(groupKey);
     else newSet.add(groupKey);
     setExpandedGroups(newSet);
   };
 
-  if (!data.rows.length) return <div className="p-4 text-center text-slate-400 text-xs">No data</div>;
+  const handleGroupClick = (groupKey: string, firstRow: DataRow, allImages: Set<string>) => {
+      if (onSelectRow) {
+          // Create a representative row for the group
+          const representativeRow = { ...firstRow };
+          
+          // Inject ALL collected images as a comma-separated string
+          // The DashboardPanel is smart enough to split this string and display multiple images
+          if (imageCol && allImages.size > 0) {
+              representativeRow[imageCol.name] = Array.from(allImages).join(',');
+          }
+          
+          onSelectRow(representativeRow, 'group');
+      }
+  };
+
+  const renderCellContent = (col: ColumnInfo, value: any) => {
+    if (col.type === 'image') {
+        // Should not happen if displayColumns filters it, but as a fallback
+        return null;
+    }
+
+    if (col.type === 'number' && typeof value === 'number') {
+      return <span className="font-mono text-slate-700">{value.toLocaleString()}</span>;
+    }
+
+    const strVal = String(value || '');
+    
+    // Condition/Status Color Coding
+    if (isConditionCol(col.name)) {
+        const parts = strVal.split(/,\s*/).filter(Boolean);
+        if (parts.length === 0) return <span className="opacity-50">-</span>;
+        return (
+            <div className="flex flex-wrap gap-1 items-center">
+                {parts.map((part, i) => {
+                    let label = part;
+                    let badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+                    const v = part.toLowerCase();
+
+                    // Normalize text and assign colors as requested
+                    if (v.includes('บางส่วน') || v.includes('partially')) {
+                        label = t('statusPartial');
+                        badgeClass = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                    } else if (v.includes('ชำรุด') || v.includes('เสีย') || v.includes('broken') || v.includes('bad') || v.includes('damaged')) {
+                        label = t('statusDamaged');
+                        badgeClass = 'bg-red-100 text-red-700 border-red-200';
+                    } else if (v.includes('ดี') || v.includes('good') || v.includes('ปกติ') || v.includes('normal') || v.includes('เรียบร้อย')) {
+                        label = t('statusGood');
+                        badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                    }
+
+                    return (
+                        <span key={i} className={`px-2 py-0.5 rounded-full text-[9px] font-medium border whitespace-nowrap ${badgeClass}`}>
+                            {label}
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    return <span className="truncate max-w-[150px] block" title={strVal}>{strVal}</span>;
+  };
+
+  if (!data.rows.length) return <div className="p-4 text-center text-slate-400 text-xs">{t('noData')}</div>;
 
   return (
     <div className="flex flex-col h-full bg-white font-sans text-xs">
-      {/* Compact Search Bar */}
       <div className="px-2 py-1.5 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50/30">
         <div className="relative flex-1">
           <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Search..." 
+            placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-7 pr-2 py-1 text-[10px] bg-white border border-slate-200 rounded-md w-full focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400 h-7"
@@ -93,7 +208,6 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
         )}
       </div>
 
-      {/* Table Area */}
       <div className="flex-1 overflow-auto custom-scrollbar">
         <table className="min-w-full divide-y divide-slate-100 border-separate border-spacing-0">
           <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm shadow-slate-100/50">
@@ -117,35 +231,44 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
           <tbody className="bg-white divide-y divide-slate-50">
             {isGroupedView && groupedData ? (
               groupedData.length > 0 ? (
-                groupedData.map(([roomName, { rows, totals, staticValues }]) => {
+                groupedData.map(([roomName, { rows, totals, staticValues, allImages }]) => {
                   const isExpanded = expandedGroups.has(roomName);
                   return (
                     <React.Fragment key={roomName}>
                       {/* Group Header */}
                       <tr 
-                        onClick={() => toggleGroup(roomName)}
-                        className={`cursor-pointer transition-colors group ${isExpanded ? 'bg-indigo-50/40' : 'hover:bg-slate-50'}`}
+                        className={`transition-colors group ${isExpanded ? 'bg-indigo-50/40' : 'hover:bg-slate-50'}`}
                       >
-                        <td className="px-1 py-1.5 text-center w-6">
+                        <td 
+                            onClick={(e) => toggleGroup(roomName, e)}
+                            className="px-1 py-1.5 text-center w-6 cursor-pointer hover:text-indigo-600"
+                        >
                           {isExpanded ? <ChevronDown className="w-3 h-3 text-indigo-500" /> : <ChevronRight className="w-3 h-3 text-slate-400 group-hover:text-slate-600" />}
                         </td>
                         {displayColumns.map((col, idx) => {
                           if (idx === 0) {
                             return (
-                              <td key={col.name} className="px-3 py-1.5 whitespace-nowrap">
+                              <td key={col.name} 
+                                  className="px-3 py-1.5 whitespace-nowrap cursor-pointer"
+                                  onClick={() => handleGroupClick(roomName, rows[0], allImages)}
+                              >
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-slate-800 text-[11px]">{roomName}</span>
+                                  {/* Thumbnail removed from here to keep it clean, relying on top preview panel */}
+                                  <span className="font-semibold text-slate-800 text-[11px] group-hover:text-indigo-700 transition-colors">{roomName}</span>
                                   <span className="text-[9px] bg-slate-100 text-slate-500 px-1 rounded border border-slate-200">{rows.length}</span>
                                 </div>
                               </td>
                             );
                           }
                           return (
-                             <td key={col.name} className="px-3 py-1.5 whitespace-nowrap text-[10px] text-slate-400">
-                               {col.type === 'number' && totals[col.name] ? (
+                             <td key={col.name} 
+                                 className="px-3 py-1.5 whitespace-nowrap text-[10px] text-slate-400 cursor-pointer"
+                                 onClick={() => handleGroupClick(roomName, rows[0], allImages)}
+                             >
+                               {col.type === 'number' && totals[col.name] !== undefined ? (
                                    <span className="font-mono text-slate-600 font-medium">{totals[col.name].toLocaleString()}</span>
                                ) : (
-                                   <span className="opacity-50 truncate max-w-[100px] block" title={staticValues[col.name]}>{staticValues[col.name]}</span>
+                                   renderCellContent(col, staticValues[col.name])
                                )}
                              </td>
                           )
@@ -154,20 +277,16 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
 
                       {/* Details */}
                       {isExpanded && rows.map((row, rIdx) => (
-                        <tr key={`${roomName}-${rIdx}`} className="bg-slate-50/30 hover:bg-indigo-50/10">
+                        <tr 
+                            key={`${roomName}-${rIdx}`} 
+                            className="bg-slate-50/30 hover:bg-indigo-50/10 cursor-pointer"
+                            onClick={() => onSelectRow && onSelectRow(row, 'item')}
+                        >
                           <td className="w-6 border-l-2 border-indigo-100"></td>
                           {displayColumns.map((col) => {
-                            const isStatic = staticValues[col.name] !== undefined;
-                            const shouldHide = isStatic && rows.length > 1;
                             return (
                               <td key={`${rIdx}-${col.name}`} className="px-3 py-1 whitespace-nowrap text-[10px] text-slate-600">
-                                {shouldHide ? (
-                                  <span className="text-slate-200 select-none">"</span>
-                                ) : (
-                                  col.type === 'number' && typeof row[col.name] === 'number' 
-                                    ? <span className="font-mono text-slate-700">{(row[col.name] as number).toLocaleString()}</span>
-                                    : <span className="truncate max-w-[150px] block" title={String(row[col.name])}>{String(row[col.name])}</span>
-                                )}
+                                {renderCellContent(col, row[col.name])}
                               </td>
                             );
                           })}
@@ -177,13 +296,17 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
                   );
                 })
               ) : (
-                <tr><td colSpan={displayColumns.length + 1} className="p-4 text-center text-slate-400 text-[10px]">No matches</td></tr>
+                <tr><td colSpan={displayColumns.length + 1} className="p-4 text-center text-slate-400 text-[10px]">{t('noMatches')}</td></tr>
               )
             ) : (
               // Flat View
               filteredRows.length > 0 ? (
                 filteredRows.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-indigo-50/20 transition-colors">
+                  <tr 
+                    key={idx} 
+                    className="hover:bg-indigo-50/20 transition-colors cursor-pointer"
+                    onClick={() => onSelectRow && onSelectRow(row, 'item')}
+                  >
                     {!isGroupedView && roomCol && (
                        <td className="px-3 py-1.5 whitespace-nowrap text-[10px] font-medium text-slate-800 border-r border-slate-50">
                          {String(row[roomCol.name])}
@@ -191,15 +314,13 @@ export const DataGrid: React.FC<DataGridProps> = ({ data }) => {
                     )}
                     {displayColumns.map((col) => (
                       <td key={`${idx}-${col.name}`} className="px-3 py-1.5 whitespace-nowrap text-[10px] text-slate-600">
-                         {col.type === 'number' && typeof row[col.name] === 'number' 
-                          ? <span className="font-mono">{(row[col.name] as number).toLocaleString()}</span>
-                          : <span className="truncate max-w-[150px] block" title={String(row[col.name])}>{String(row[col.name] || '')}</span>}
+                         {renderCellContent(col, row[col.name])}
                       </td>
                     ))}
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={displayColumns.length + (roomCol ? 1 : 0)} className="p-4 text-center text-slate-400 text-[10px]">No matches</td></tr>
+                <tr><td colSpan={displayColumns.length + (roomCol ? 1 : 0)} className="p-4 text-center text-slate-400 text-[10px]">{t('noMatches')}</td></tr>
               )
             )}
           </tbody>

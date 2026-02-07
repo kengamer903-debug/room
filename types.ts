@@ -4,7 +4,7 @@ export interface DataRow {
 
 export interface ColumnInfo {
   name: string;
-  type: 'string' | 'number' | 'date';
+  type: 'string' | 'number' | 'date' | 'image';
 }
 
 export interface SheetData {

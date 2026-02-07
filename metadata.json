@@ -1,0 +1,5 @@
+{
+  "name": "SmartSheet Analytics",
+  "description": "An intelligent dashboard that visualizes data directly from Google Sheets and provides AI-powered insights using Gemini.",
+  "requestFramePermissions": []
+}

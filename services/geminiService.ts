@@ -56,3 +56,60 @@ export const analyzeDashboardData = async (data: SheetData): Promise<string> => 
     return "Failed to generate insights. Please try again later.";
   }
 };
+
+export const chatWithData = async (data: SheetData, history: {role: 'user'|'model', text: string}[], userMessage: string): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Create a summarized context of the data
+    // We cannot send all rows, so we send headers, stats, and a sample
+    const headers = data.columns.map(c => c.name).join(', ');
+    
+    // Calculate simple stats for context
+    const conditionCol = data.columns.find(c => /condition|status|สภาพ|สถานะ/i.test(c.name));
+    let conditionSummary = "Condition Status Summary: N/A";
+    
+    if (conditionCol) {
+        const counts: Record<string, number> = {};
+        data.rows.forEach(r => {
+            const val = String(r[conditionCol.name] || 'Unknown');
+            counts[val] = (counts[val] || 0) + 1;
+        });
+        conditionSummary = "Condition Counts: " + JSON.stringify(counts);
+    }
+    
+    const rowCount = data.rows.length;
+    const sampleRows = data.rows.slice(0, 5).map(r => JSON.stringify(r)).join('\n');
+
+    const systemInstruction = `
+        You are a helpful AI assistant for an Asset Management Dashboard.
+        You have access to a dataset summary:
+        - Total Items: ${rowCount}
+        - Columns: ${headers}
+        - ${conditionSummary}
+        - Sample Data: ${sampleRows}
+
+        Answer the user's questions about this data. 
+        If they ask for specific calculations that you can't do precisely with just the summary, 
+        give an estimate or explain how they can find it in the dashboard (e.g. "You can filter by 'Building' to see...").
+        Keep answers concise and helpful. Reply in the same language as the user (Thai or English).
+    `;
+
+    try {
+        const chat = ai.chats.create({
+            model: MODEL_NAME,
+            config: {
+                systemInstruction: systemInstruction,
+            },
+            history: history.map(h => ({
+                role: h.role,
+                parts: [{ text: h.text }]
+            }))
+        });
+
+        const result = await chat.sendMessage({ message: userMessage });
+        return result.text || "I couldn't generate a response.";
+    } catch (error) {
+        console.error("Chat Error:", error);
+        return "Sorry, I encountered an error analyzing your request.";
+    }
+};

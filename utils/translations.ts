@@ -41,6 +41,7 @@ export const translations = {
     statusDamaged: "Damaged",
     statusRepair: "Repair Needed",
     statusPartial: "Partial Defect",
+    statusNone: "None",
     
     // Modal
     imageCounter: "Image {current} / {total}"
@@ -85,6 +86,7 @@ export const translations = {
     statusDamaged: "ชำรุด",
     statusRepair: "ส่งซ่อม",
     statusPartial: "ชำรุดบางส่วน",
+    statusNone: "ไม่มี",
     
     // Modal
     imageCounter: "รูปที่ {current} / {total}"

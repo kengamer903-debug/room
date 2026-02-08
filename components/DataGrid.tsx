@@ -158,7 +158,10 @@ export const DataGrid: React.FC<DataGridProps> = ({ data, onSelectRow }) => {
                     const v = part.toLowerCase();
 
                     // Normalize text and assign colors as requested
-                    if (v.includes('บางส่วน') || v.includes('partially')) {
+                    if (v.includes('ไม่มี') || v.includes('none') || v.includes('missing')) {
+                        label = t('statusNone');
+                        badgeClass = 'bg-slate-100 text-slate-500 border-slate-200'; // Grayish
+                    } else if (v.includes('บางส่วน') || v.includes('partially')) {
                         label = t('statusPartial');
                         badgeClass = 'bg-yellow-100 text-yellow-800 border-yellow-200';
                     } else if (v.includes('ชำรุด') || v.includes('เสีย') || v.includes('broken') || v.includes('bad') || v.includes('damaged')) {

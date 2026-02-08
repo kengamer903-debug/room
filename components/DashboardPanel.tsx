@@ -30,6 +30,7 @@ const COLORS: Record<string, string> = {
   'broken': '#ef4444',
   'repair': '#f59e0b', // Amber 500
   'partial': '#f59e0b',
+  'none': '#94a3b8', // Slate 400 (Grey for None)
   'unknown': '#94a3b8', // Slate 400
   'default': '#6366f1'  // Indigo 500
 };
@@ -93,10 +94,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
       rows = rows.filter(r => {
           const val = String(r[conditionCol.name] || 'Unknown').trim().toLowerCase();
           let localKey = 'Unknown';
-          if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) localKey = t('statusGood');
-          else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) localKey = t('statusDamaged');
-          else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) localKey = t('statusPartial');
-          else localKey = val;
+          
+          if (val.includes('ไม่มี') || val.includes('none') || val.includes('missing')) {
+            localKey = t('statusNone');
+          } else if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) {
+            localKey = t('statusGood');
+          } else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) {
+            localKey = t('statusPartial');
+          } else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) {
+            localKey = t('statusDamaged');
+          } else {
+            localKey = t('statusPartial'); // Fallback matches stats logic
+          }
           
           return localKey === targetKey;
       });
@@ -122,10 +131,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
       
       // Normalize to Localized Key
       let label = val;
-      if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) label = t('statusGood');
-      else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) label = t('statusDamaged');
-      else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) label = t('statusPartial');
-      else label = t('statusPartial'); 
+      
+      if (val.includes('ไม่มี') || val.includes('none') || val.includes('missing')) {
+        label = t('statusNone');
+      } else if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) {
+        label = t('statusGood');
+      } else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) {
+        label = t('statusPartial');
+      } else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) {
+        label = t('statusDamaged');
+      } else {
+        label = t('statusPartial'); // Fallback
+      }
       
       counts[label] = (counts[label] || 0) + 1;
     });
@@ -136,6 +153,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
          if (name === t('statusGood')) color = COLORS.good;
          else if (name === t('statusDamaged')) color = COLORS.damaged;
          else if (name === t('statusRepair') || name === t('statusPartial')) color = COLORS.repair;
+         else if (name === t('statusNone')) color = COLORS.none;
          else color = PALETTE[Object.keys(counts).indexOf(name) % PALETTE.length];
 
          return { name, value, color };

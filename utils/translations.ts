@@ -78,7 +78,16 @@ export const translations = {
     zoomIn: "Zoom In",
     zoomOut: "Zoom Out",
     resetView: "Reset View",
-    issuesCount: "{damaged}/{total} Issues"
+    issuesCount: "{damaged}/{total} Issues",
+
+    // Buildings
+    building_CB1: "Civil Bldg 1",
+    building_CB2: "Civil Bldg 2",
+    building_CB3: "Civil Bldg 3",
+    building_CB4: "Civil Bldg 4",
+    building_CB5: "Civil Bldg 5",
+    building_CB6: "Civil Bldg 6",
+    building_CB7: "Civil Bldg 7",
   },
   th: {
     // Header
@@ -157,6 +166,15 @@ export const translations = {
     zoomIn: "ขยาย",
     zoomOut: "ย่อ",
     resetView: "รีเซ็ตมุมมอง",
-    issuesCount: "พบ {damaged}/{total} รายการ"
+    issuesCount: "พบ {damaged}/{total} รายการ",
+
+    // Buildings
+    building_CB1: "อาคารโยธา 1 (ยธ.1)",
+    building_CB2: "อาคารโยธา 2 (ยธ.2)",
+    building_CB3: "อาคารโยธา 3 (ยธ.3)",
+    building_CB4: "อาคารโยธา 4 (ยธ.4)",
+    building_CB5: "อาคารโยธา 5 (ยธ.5)",
+    building_CB6: "อาคารโยธา 6 (ยธ.6)",
+    building_CB7: "อาคารโยธา 7 (ยธ.7)",
   }
 };

@@ -95,7 +95,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
 
   // --- 2. State Management ---
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null); // Null = All
-  const [selectedCondition, setSelectedCondition] = useState<string | null>(null); // Null = All
+  const [selectedCondition, setSelectedCondition] = useState<string | null>(null); // Null = All (Canonical Key)
   const [viewMode, setViewMode] = useState<'table' | 'gallery' | 'map'>('table');
   
   // Image & Selection State
@@ -113,27 +113,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
 
   // --- 3. Filtering Logic ---
   
-  // Helper for condition filtering
-  const filterByCondition = (rows: DataRow[], conditionKey: string) => {
-      return rows.filter(r => {
-          if (!conditionCol) return true;
-          const val = String(r[conditionCol.name] || 'Unknown').trim().toLowerCase();
-          let localKey = 'Unknown';
-          
-          if (val.includes('ไม่มี') || val.includes('none') || val.includes('missing')) {
-            localKey = t('statusNone');
-          } else if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) {
-            localKey = t('statusGood');
-          } else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) {
-            localKey = t('statusPartial');
-          } else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) {
-            localKey = t('statusDamaged');
-          } else {
-            localKey = t('statusPartial'); 
-          }
-          
-          return localKey === conditionKey;
-      });
+  // Helper to get canonical condition key
+  const getConditionKey = (value: string): string => {
+      const v = value.toLowerCase();
+      if (v.includes('ไม่มี') || v.includes('none') || v.includes('missing')) return 'none';
+      if (v.includes('ดี') || v.includes('good') || v.includes('ปกติ')) return 'good';
+      if (v.includes('บางส่วน') || v.includes('partial') || v.includes('repair')) return 'partial';
+      if (v.includes('ชำรุด') || v.includes('เสีย') || v.includes('damaged')) return 'damaged';
+      return 'partial'; // Default fallback
   };
 
   const filteredData = useMemo(() => {
@@ -146,10 +133,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
       });
     }
     if (conditionCol && selectedCondition) {
-      rows = filterByCondition(rows, selectedCondition);
+      rows = rows.filter(r => {
+          const val = String(r[conditionCol.name] || 'Unknown').trim();
+          return getConditionKey(val) === selectedCondition;
+      });
     }
     return rows;
-  }, [data.rows, buildingCol, conditionCol, selectedBuilding, selectedCondition, t]);
+  }, [data.rows, buildingCol, conditionCol, selectedBuilding, selectedCondition]);
 
   const tableData = useMemo(() => ({ ...data, rows: filteredData }), [data, filteredData]);
   
@@ -157,10 +147,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
   const mapData = useMemo(() => {
       let rows = data.rows;
       if (conditionCol && selectedCondition) {
-         rows = filterByCondition(rows, selectedCondition);
+         rows = rows.filter(r => {
+             const val = String(r[conditionCol.name] || 'Unknown').trim();
+             return getConditionKey(val) === selectedCondition;
+         });
       }
       return { ...data, rows };
-  }, [data, conditionCol, selectedCondition, t]);
+  }, [data, conditionCol, selectedCondition]);
 
   // --- Group Items Logic (For Inspector List) ---
   const roomItems = useMemo(() => {
@@ -247,40 +240,29 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
         : data.rows;
 
     filteredForChart.forEach(r => {
-      const val = conditionCol ? String(r[conditionCol.name] || 'Unknown').trim().toLowerCase() : 'Unknown';
-      
-      let label = val;
-      if (val.includes('ไม่มี') || val.includes('none') || val.includes('missing')) {
-        label = t('statusNone');
-      } else if (val.includes('ดี') || val.includes('good') || val.includes('ปกติ')) {
-        label = t('statusGood');
-      } else if (val.includes('บางส่วน') || val.includes('partial') || val.includes('repair')) {
-        label = t('statusPartial');
-      } else if (val.includes('ชำรุด') || val.includes('เสีย') || val.includes('damaged')) {
-        label = t('statusDamaged');
-      } else {
-        label = t('statusPartial'); 
-      }
-      
-      counts[label] = (counts[label] || 0) + 1;
+      const val = conditionCol ? String(r[conditionCol.name] || 'Unknown').trim() : 'Unknown';
+      const key = getConditionKey(val);
+      counts[key] = (counts[key] || 0) + 1;
     });
 
     const chartData = Object.entries(counts)
-      .map(([name, value]) => {
+      .map(([key, value]) => {
          let color = PALETTE[0];
-         if (name === t('statusGood')) color = COLORS.good;
-         else if (name === t('statusDamaged')) color = COLORS.damaged;
-         else if (name === t('statusRepair') || name === t('statusPartial')) color = COLORS.repair;
-         else if (name === t('statusNone')) color = COLORS.none;
-         else color = PALETTE[Object.keys(counts).indexOf(name) % PALETTE.length];
+         let name = key;
 
-         return { name, value, color };
+         if (key === 'good') { color = COLORS.good; name = t('statusGood'); }
+         else if (key === 'damaged') { color = COLORS.damaged; name = t('statusDamaged'); }
+         else if (key === 'partial') { color = COLORS.repair; name = t('statusPartial'); }
+         else if (key === 'none') { color = COLORS.none; name = t('statusNone'); }
+         else { color = PALETTE[Object.keys(counts).indexOf(key) % PALETTE.length]; }
+
+         return { name, value, color, key };
       })
       .sort((a, b) => b.value - a.value);
 
     // KPI: Action Required (Damaged)
     const damagedCount = chartData
-        .filter(d => d.color === COLORS.damaged || d.color === COLORS.repair)
+        .filter(d => d.key === 'damaged' || d.key === 'partial')
         .reduce((acc, curr) => acc + curr.value, 0);
 
     return { total, current, chartData, damagedCount };
@@ -445,11 +427,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
   const RenderLegend = () => (
       <div className="flex flex-col gap-2 mt-4 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
           {stats.chartData.map((entry, idx) => {
-              const isActive = selectedCondition === entry.name;
+              const isActive = selectedCondition === entry.key; // Use canonical key for comparison
               return (
                   <button 
                       key={idx}
-                      onClick={() => setSelectedCondition(isActive ? null : entry.name)}
+                      onClick={() => setSelectedCondition(isActive ? null : entry.key)} // Set canonical key
                       className={`flex items-center justify-between w-full p-2 rounded-lg text-xs transition-all ${isActive ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-slate-50 border border-transparent'}`}
                   >
                       <div className="flex items-center gap-2 overflow-hidden">
@@ -500,7 +482,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                   <div className="min-w-0">
                       <p className="text-slate-500 text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 truncate">{t('goodCondition')}</p>
                       <h3 className="text-lg md:text-2xl font-bold text-slate-800 truncate">
-                          {stats.chartData.filter(d => d.color === COLORS.good).reduce((a,b) => a + b.value, 0).toLocaleString()}
+                          {stats.chartData.filter(d => d.key === 'good').reduce((a,b) => a + b.value, 0).toLocaleString()}
                       </h3>
                       <p className="text-emerald-500 text-[9px] md:text-[10px] font-medium mt-1 flex items-center gap-1 truncate">
                           <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> {t('operational')}
@@ -623,8 +605,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({ data }) => {
                       <div className="w-full h-[150px] md:h-[180px] relative">
                           <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
-                                  <Pie data={stats.chartData} innerRadius={55} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none" onClick={(data) => setSelectedCondition(selectedCondition === data.name ? null : data.name)} cursor="pointer">
-                                      {stats.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} opacity={selectedCondition && selectedCondition !== entry.name ? 0.3 : 1} />)}
+                                  <Pie data={stats.chartData} innerRadius={55} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none" onClick={(data) => setSelectedCondition(selectedCondition === data.key ? null : data.key)} cursor="pointer">
+                                      {stats.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} opacity={selectedCondition && selectedCondition !== entry.key ? 0.3 : 1} />)}
                                   </Pie>
                                   <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} itemStyle={{ fontSize: '12px', fontWeight: 600 }} />
                               </PieChart>

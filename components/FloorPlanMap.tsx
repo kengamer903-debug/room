@@ -68,15 +68,13 @@ export const FloorPlanMap: React.FC<FloorPlanMapProps> = ({ data, onSelectBuildi
   };
 
   const buildings = [
-    { id: 'CB2', name: 'อาคารโยธา 2 (ยธ.2)', d: 'M220,40 L370,40 L370,200 L220,200 Z', textPos: { x: 295, y: 120 } },
-    { id: 'CB1', name: 'อาคารโยธา 1 (ยธ.1)', d: 'M150,230 L300,230 L300,550 L350,550 L350,650 L400,650 L400,730 L150,730 Z', textPos: { x: 225, y: 480 } },
-    { id: 'CB3', name: 'อาคารโยธา 3 (ยธ.3)', d: 'M310,210 L420,210 L420,390 L310,390 Z', textPos: { x: 365, y: 300 } },
-    { id: 'CB4', name: 'อาคารโยธา 4 (ยธ.4)', d: 'M425,190 L720,190 L720,570 L425,570 Z', textPos: { x: 572, y: 380 } },
-    // Swapped: CB5 is now the top one (originally CB6 position)
-    { id: 'CB5', name: 'อาคารโยธา 5 (ยธ.5)', d: 'M380,660 L640,660 L640,740 L380,740 Z', textPos: { x: 510, y: 700 } },
-    // Swapped: CB6 is now the bottom one (originally CB5 position)
-    { id: 'CB6', name: 'อาคารโยธา 6 (ยธ.6)', d: 'M400,815 L615,815 L615,925 L400,925 Z', textPos: { x: 507, y: 870 } },
-    { id: 'CB7', name: 'อาคารโยธา 7 (ยธ.7)', d: 'M200,760 L330,760 L330,860 L200,860 Z', textPos: { x: 265, y: 810 } },
+    { id: 'CB2', name: t('building_CB2'), d: 'M220,40 L370,40 L370,200 L220,200 Z', textPos: { x: 295, y: 120 } },
+    { id: 'CB1', name: t('building_CB1'), d: 'M150,230 L300,230 L300,550 L350,550 L350,650 L400,650 L400,730 L150,730 Z', textPos: { x: 225, y: 480 } },
+    { id: 'CB3', name: t('building_CB3'), d: 'M310,210 L420,210 L420,390 L310,390 Z', textPos: { x: 365, y: 300 } },
+    { id: 'CB4', name: t('building_CB4'), d: 'M425,190 L720,190 L720,570 L425,570 Z', textPos: { x: 572, y: 380 } },
+    { id: 'CB5', name: t('building_CB5'), d: 'M380,660 L640,660 L640,740 L380,740 Z', textPos: { x: 510, y: 700 } },
+    { id: 'CB6', name: t('building_CB6'), d: 'M400,815 L615,815 L615,925 L400,925 Z', textPos: { x: 507, y: 870 } },
+    { id: 'CB7', name: t('building_CB7'), d: 'M200,760 L330,760 L330,860 L200,860 Z', textPos: { x: 265, y: 810 } },
     
     // Background Context Shapes
     { id: 'BG_TOP', name: '46', d: 'M475,20 L760,20 L760,140 L475,140 Z', isBg: true, textPos: { x: 617, y: 80 } },

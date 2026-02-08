@@ -16,8 +16,7 @@
     "lucide-react": "^0.563.0",
     "three": "0.170.0",
     "@react-three/fiber": "8.17.10",
-    "@react-three/drei": "9.117.0",
-    "react-qr-code": "2.0.12"
+    "@react-three/drei": "9.117.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
